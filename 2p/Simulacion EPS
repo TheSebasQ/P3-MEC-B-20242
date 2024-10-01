@@ -1,0 +1,193 @@
+package javaapplication2;
+import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.PriorityQueue;
+
+// Clase Paciente que implementa Comparable para la fila de prioridad
+class Paciente implements Comparable<Paciente> {
+    private String cedula;
+    private int edad;
+    private boolean discapacidad;
+    private String servicio;
+    private String horaLlegada;
+
+    public Paciente(String cedula, int edad, boolean discapacidad, String servicio, String horaLlegada) {
+        this.cedula = cedula;
+        this.edad = edad;
+        this.discapacidad = discapacidad;
+        this.servicio = servicio;
+        this.horaLlegada = horaLlegada;
+    }
+
+    public String getCedula() {
+        return cedula;
+    }
+
+    public String getServicio() {
+        return servicio;
+    }
+
+    public String getHoraLlegada() {
+        return horaLlegada;
+    }
+
+    public String getCategoria() {
+        if (edad >= 60) {
+            return "Adulto Mayor";
+        } else if (discapacidad) {
+            return "Persona con discapacidad";
+        } else {
+            return "Menor de 60 años";
+        }
+    }
+
+    // Criterios de prioridad: discapacidad > adulto mayor > menor de 60
+    @Override
+    public int compareTo(Paciente otro) {
+        if (this.discapacidad && !otro.discapacidad) {
+            return -1;
+        } else if (!this.discapacidad && otro.discapacidad) {
+            return 1;
+        } else if (this.edad >= 60 && otro.edad < 60) {
+            return -1;
+        } else if (this.edad < 60 && otro.edad >= 60) {
+            return 1;
+        }
+        return 0; // Si son iguales en prioridad
+    }
+}
+
+public class JavaApplication2 extends JFrame {
+    private PriorityQueue<Paciente> colaPacientes = new PriorityQueue<>();
+    private DefaultListModel<String> listaModel = new DefaultListModel<>();
+    private JSlider velocidadSlider;
+    private JLabel tiempoSimulacionLabel;
+    private int velocidadTiempo = 60; // 1 segundo = 1 minuto en la simulación
+
+    public JavaApplication2() {
+        setTitle("Sistema de Atención EPS");
+        setSize(800, 600);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout());
+
+        // Panel para ingresar los datos de los usuarios (lado izquierdo)
+        JPanel panelIzquierdo = new JPanel();
+        panelIzquierdo.setLayout(new GridLayout(6, 2, 10, 10));
+
+        JLabel cedulaLabel = new JLabel("Número de cédula:");
+        JTextField cedulaField = new JTextField();
+        JLabel edadLabel = new JLabel("Edad:");
+        JTextField edadField = new JTextField();
+        JLabel discapacidadLabel = new JLabel("¿Tiene discapacidad?");
+        JCheckBox discapacidadCheck = new JCheckBox();
+        JLabel servicioLabel = new JLabel("Servicio solicitado:");
+        String[] servicios = {"Consulta Médico General", "Consulta Médica Especializada", "Prueba de Laboratorio", "Imágenes Diagnósticas"};
+        JComboBox<String> servicioComboBox = new JComboBox<>(servicios);
+        JLabel horaLlegadaLabel = new JLabel("Hora de llegada:");
+        JTextField horaField = new JTextField();
+        horaField.setEditable(false);
+        JButton registrarButton = new JButton("Registrar");
+
+        panelIzquierdo.add(cedulaLabel);
+        panelIzquierdo.add(cedulaField);
+        panelIzquierdo.add(edadLabel);
+        panelIzquierdo.add(edadField);
+        panelIzquierdo.add(discapacidadLabel);
+        panelIzquierdo.add(discapacidadCheck);
+        panelIzquierdo.add(servicioLabel);
+        panelIzquierdo.add(servicioComboBox);
+        panelIzquierdo.add(horaLlegadaLabel);
+        panelIzquierdo.add(horaField);
+        panelIzquierdo.add(new JLabel()); // Espacio vacío
+        panelIzquierdo.add(registrarButton);
+
+        // Panel para mostrar los pacientes registrados (lado derecho)
+        JPanel panelDerecho = new JPanel();
+        panelDerecho.setLayout(new BorderLayout());
+
+        JList<String> listaPacientesView = new JList<>(listaModel);
+        JScrollPane scrollPane = new JScrollPane(listaPacientesView);
+
+        JLabel listaLabel = new JLabel("Pacientes Registrados:");
+        tiempoSimulacionLabel = new JLabel("Velocidad del tiempo: 1s = 1min");
+        velocidadSlider = new JSlider(JSlider.HORIZONTAL, 10, 120, 60); // Ajusta la velocidad del tiempo
+
+        panelDerecho.add(listaLabel, BorderLayout.NORTH);
+        panelDerecho.add(scrollPane, BorderLayout.CENTER);
+        panelDerecho.add(velocidadSlider, BorderLayout.SOUTH);
+        panelDerecho.add(tiempoSimulacionLabel, BorderLayout.NORTH);
+
+        // Evento para registrar pacientes
+        registrarButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String cedula = cedulaField.getText();
+                String edadStr = edadField.getText();
+                boolean discapacidad = discapacidadCheck.isSelected();
+                String servicio = (String) servicioComboBox.getSelectedItem();
+                String horaLlegada = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+
+                // Validaciones
+                if (!cedula.matches("\\d{6,12}")) {
+                    JOptionPane.showMessageDialog(null, "La cédula debe tener entre 6 y 12 dígitos numéricos.");
+                    return;
+                }
+                int edad;
+                try {
+                    edad = Integer.parseInt(edadStr);
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(null, "Edad inválida.");
+                    return;
+                }
+
+                Paciente nuevoPaciente = new Paciente(cedula, edad, discapacidad, servicio, horaLlegada);
+                colaPacientes.add(nuevoPaciente);
+                actualizarListaPacientes();
+
+                horaField.setText(horaLlegada); // Mostrar la hora de llegada
+
+                if (colaPacientes.size() >= 10) {
+                    JOptionPane.showMessageDialog(null, "Servicio comenzará ahora. Hay 10 pacientes en espera.");
+                }
+
+                cedulaField.setText("");
+                edadField.setText("");
+                discapacidadCheck.setSelected(false);
+                horaField.setText("");
+            }
+        });
+
+        // Evento para ajustar el tiempo con el slider
+        velocidadSlider.addChangeListener(new ChangeListener() {
+            @Override
+            public void stateChanged(ChangeEvent e) {
+                velocidadTiempo = velocidadSlider.getValue();
+                tiempoSimulacionLabel.setText("Velocidad del tiempo: 1s = " + velocidadTiempo / 60.0 + " min");
+            }
+        });
+
+        // Añadir los paneles al JFrame
+        add(panelIzquierdo, BorderLayout.WEST);
+        add(panelDerecho, BorderLayout.CENTER);
+
+        setVisible(true);
+    }
+
+    // Actualiza la lista de pacientes visualmente en la lista JList
+    private void actualizarListaPacientes() {
+        listaModel.clear();
+        for (Paciente paciente : colaPacientes) {
+            listaModel.addElement(paciente.getCedula() + " - " + paciente.getCategoria() + " - " + paciente.getServicio());
+        }
+    }
+
+    public static void main(String[] args) {
+        new JavaApplication2();
+    }
+}
